@@ -46,7 +46,30 @@ class SimulationConfig:
     background_color: int = 0x112233
     stats_print_interval: int = 50
 
+    # Vesicle parameters (from ChemoTaxis)
+    vesicle_percentage: float = 0.01  # 1% of particles are vesicles
+    vesicle_min_radius: float = 10.0
+    vesicle_max_radius: float = 25.0
+    growth_per_monomer: float = 0.25  # Radius increase per absorbed monomer
+    growth_factor: float = 1.5  # Spatial distribution factor for monomers
+    absorb_rate: float = 2.5  # Vesicle-vesicle absorption rate (units/sec)
+    mechanical_event_probability: float = 0.2  # 20% chance of division per frame
+    division_size_min: float = 50.0  # Minimum radius for division
+    division_size_max: float = 75.0  # Maximum radius for division
+    death_radius: float = 1.0  # Vesicles below this radius die
+    monomer_move_rate: int = 5  # Max monomers transferred during vesicle absorption
+
     @property
     def cell_size(self) -> float:
         """Grid cell size."""
         return 1.0 / self.n_grid
+
+    @property
+    def n_vesicles(self) -> int:
+        """Number of initial vesicles."""
+        return int(self.n_particles * self.vesicle_percentage)
+
+    @property
+    def n_monomers(self) -> int:
+        """Number of initial monomers."""
+        return self.n_particles - self.n_vesicles
