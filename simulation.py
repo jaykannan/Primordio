@@ -74,12 +74,13 @@ class PrimordialSoupSimulation:
             f"Temp: max={stats['max_temp']:.3f} min={stats['min_temp']:.3f} avg={stats['avg_temp']:.3f}"
         )
 
-    def get_particle_data(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Get particle positions, colors, and radii for rendering."""
+    def get_particle_data(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Get particle positions, colors, radii, and types for rendering."""
         positions = self.fields.pos.to_numpy()
         colors = self.fields.colors.to_numpy()
         radii = self.fields.radius.to_numpy()
-        return positions, colors, radii
+        types = self.fields.particle_type.to_numpy()
+        return positions, colors, radii, types
 
     def run(self):
         """Run the simulation with GUI."""
@@ -100,16 +101,37 @@ class PrimordialSoupSimulation:
                 self.step()
 
             # Get particle data for rendering
-            positions, colors, radii = self.get_particle_data()
+            positions, colors, radii, types = self.get_particle_data()
 
-            # Convert RGB colors to hex format
-            colors_hex = (colors * 255).astype(int)
-            colors_hex = (
-                (colors_hex[:, 0] << 16) | (colors_hex[:, 1] << 8) | colors_hex[:, 2]
-            )
+            # Separate monomers and vesicles
+            monomer_mask = types == 0  # ParticleType.MONOMER
+            vesicle_mask = types == 1  # ParticleType.VESICLE
 
-            # Render with per-particle radii
-            gui.circles(positions, radius=radii, color=colors_hex)
+            # Render monomers (solid, colorful)
+            if np.any(monomer_mask):
+                monomer_pos = positions[monomer_mask]
+                monomer_colors = colors[monomer_mask]
+                monomer_radii = radii[monomer_mask]
+
+                # Convert to hex
+                colors_hex = (monomer_colors * 255).astype(int)
+                colors_hex = (
+                    (colors_hex[:, 0] << 16)
+                    | (colors_hex[:, 1] << 8)
+                    | colors_hex[:, 2]
+                )
+
+                gui.circles(monomer_pos, radius=monomer_radii, color=colors_hex)
+
+            # Render vesicles (dark outline effect - draw with very dark color)
+            if np.any(vesicle_mask):
+                vesicle_pos = positions[vesicle_mask]
+                vesicle_radii = radii[vesicle_mask]
+
+                # Dark cyan outline color (low brightness for outline effect)
+                vesicle_color_dark = 0x1A4D4D  # Dark teal
+
+                gui.circles(vesicle_pos, radius=vesicle_radii, color=vesicle_color_dark)
             gui.show()
 
             self.frame += 1
