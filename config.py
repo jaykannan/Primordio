@@ -47,12 +47,14 @@ class SimulationConfig:
     stats_print_interval: int = 50
 
     # Vesicle parameters (from ChemoTaxis)
-    vesicle_percentage: float = 0.01  # 1% of particles are vesicles
-    vesicle_min_radius: float = 10.0
-    vesicle_max_radius: float = 25.0
-    growth_per_monomer: float = 0.25  # Radius increase per absorbed monomer
+    vesicle_percentage: float = 0.002  # 0.2% of particles are vesicles (fewer, more visible)
+    vesicle_min_radius: float = 5.0  # Wider size range for variety
+    vesicle_max_radius: float = 35.0
+    growth_per_monomer: float = 0.08  # Radius increase per absorbed monomer (slower growth)
     growth_factor: float = 1.5  # Spatial distribution factor for monomers
     absorb_rate: float = 2.5  # Vesicle-vesicle absorption rate (units/sec)
+    absorption_probability: float = 0.05  # 5% chance per frame to absorb a colliding monomer
+    vesicle_fluid_coupling: float = 0.15  # How much vesicles respond to fluid currents
     mechanical_event_probability: float = 0.2  # 20% chance of division per frame
     division_size_min: float = 50.0  # Minimum radius for division
     division_size_max: float = 75.0  # Maximum radius for division

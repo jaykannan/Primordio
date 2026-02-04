@@ -26,16 +26,23 @@ class SimulationFields:
         self.radius = ti.field(dtype=ti.f32, shape=config.n_particles)
         self.radius_threshold = ti.field(dtype=ti.f32, shape=config.n_particles)
 
+        # Monomer bias scores (determine behavior)
+        self.absorption_bias = ti.field(dtype=ti.f32, shape=config.n_particles)  # 0-1: tendency to absorb
+        self.division_bias = ti.field(dtype=ti.f32, shape=config.n_particles)    # 0-1: tendency to divide
+        self.attraction_bias = ti.field(dtype=ti.f32, shape=config.n_particles)  # 0-1: tendency to attract
+        self.repulsion_bias = ti.field(dtype=ti.f32, shape=config.n_particles)   # 0-1: tendency to repel
+
         # Vesicle polymer tracking
         # Each monomer that's absorbed by a vesicle stores the vesicle's ID
         self.parent_vesicle = ti.field(dtype=ti.i32, shape=config.n_particles)
         # Offset position relative to vesicle center (for monomers inside vesicles)
         self.offset = ti.Vector.field(2, dtype=ti.f32, shape=config.n_particles)
 
-        # Vesicle statistics
+        # Vesicle statistics and properties
         self.monomers_eaten = ti.field(dtype=ti.i32, shape=config.n_particles)
         self.life_timer = ti.field(dtype=ti.f32, shape=config.n_particles)
         self.volume_growth = ti.field(dtype=ti.f32, shape=config.n_particles)
+        self.absorption_rate = ti.field(dtype=ti.f32, shape=config.n_particles)  # Per-vesicle absorption probability
 
         # Fluid grid fields
         self.velocity_field = ti.Vector.field(
@@ -75,19 +82,33 @@ class SimulationFields:
             self.monomers_eaten[i] = 0
             self.life_timer[i] = 0.0
             self.volume_growth[i] = 0.0
+            self.absorption_rate[i] = 0.0  # Default for monomers
 
-            # First 1% are vesicles, rest are monomers
+            # Initialize monomer bias scores (random distribution)
+            self.absorption_bias[i] = ti.random()
+            self.division_bias[i] = ti.random()
+            self.attraction_bias[i] = ti.random()
+            self.repulsion_bias[i] = ti.random()
+
+            # First 0.2% are vesicles, rest are monomers
             if i < n_vesicles:
-                # Initialize as vesicle
+                # Initialize as vesicle with varied properties
                 self.particle_type[i] = int(ParticleType.VESICLE)
+
+                # Wider size range for more variety
                 self.radius[i] = (
                     self.config.vesicle_min_radius
                     + ti.random()
                     * (self.config.vesicle_max_radius - self.config.vesicle_min_radius)
                 )
-                self.radius_threshold[i] = self.radius[i]
+
+                # Set threshold to division size so vesicles can grow before dividing
+                self.radius_threshold[i] = self.config.division_size_min
                 self.monomer_type[i] = -1  # Vesicles don't have a monomer type
                 self.chemical_property[i] = int(ChemicalProperty.NONE)
+
+                # Random absorption rate per vesicle (0.005 to 0.05 = 0.5% to 5% chance)
+                self.absorption_rate[i] = 0.005 + ti.random() * 0.045
 
                 # Vesicle color (cyan/green to distinguish from monomers)
                 self.colors[i] = ti.Vector([0.2, 0.8, 0.8])

@@ -55,10 +55,22 @@ class ParticleSystem:
                 self.fields.vel[i].y += (buoyancy_force + gravity_force) * self.config.dt
                 self.fields.vel[i] *= 0.97  # Moderate damping
 
-                # Minimal Brownian motion for vesicles
+                # Fluid coupling for vesicles (respond to convection currents)
+                fluid_vel = self.physics.sample_bilinear(
+                    self.fields.velocity_field,
+                    self.fields.pos[i].x,
+                    self.fields.pos[i].y,
+                )
+                self.fields.vel[i] += fluid_vel * self.config.vesicle_fluid_coupling * self.config.dt
+
+                # Enhanced horizontal drift for vesicles (simulate repelling forces)
+                horizontal_bias = (ti.random() - 0.5) * 0.008  # 10x stronger horizontal drift
+                self.fields.vel[i].x += horizontal_bias
+
+                # Minimal Brownian motion for vesicles (more horizontal)
                 brownian_motion = ti.Vector([
-                    (ti.random() - 0.5) * 0.0008,
-                    (ti.random() - 0.5) * 0.0008,
+                    (ti.random() - 0.5) * 0.003,  # 4x stronger horizontal
+                    (ti.random() - 0.5) * 0.0005,  # Reduced vertical
                 ])
                 self.fields.pos[i] += brownian_motion
 
@@ -105,15 +117,19 @@ class ParticleSystem:
             # Update position
             self.fields.pos[i] += self.fields.vel[i] * self.config.dt
 
-            # Wrap around boundaries
+            # Wrap around boundaries with velocity dampening to prevent flickering
             if self.fields.pos[i].x < 0:
                 self.fields.pos[i].x += 1.0
+                self.fields.vel[i].x *= 0.3  # Dampen horizontal velocity
             if self.fields.pos[i].x > 1:
                 self.fields.pos[i].x -= 1.0
+                self.fields.vel[i].x *= 0.3  # Dampen horizontal velocity
             if self.fields.pos[i].y < 0:
                 self.fields.pos[i].y += 1.0
+                self.fields.vel[i].y *= 0.5  # Dampen vertical velocity
             if self.fields.pos[i].y > 1:
                 self.fields.pos[i].y -= 1.0
+                self.fields.vel[i].y *= 0.5  # Dampen vertical velocity
 
             # Update color
             self._update_particle_color(i)
