@@ -123,15 +123,20 @@ class PrimordialSoupSimulation:
 
                 gui.circles(monomer_pos, radius=monomer_radii, color=colors_hex)
 
-            # Render vesicles (dark outline effect - draw with very dark color)
+            # Render vesicles as outlined circles (ring effect)
             if np.any(vesicle_mask):
                 vesicle_pos = positions[vesicle_mask]
                 vesicle_radii = radii[vesicle_mask]
 
-                # Dark cyan outline color (low brightness for outline effect)
-                vesicle_color_dark = 0x1A4D4D  # Dark teal
+                # Draw outer circle (cyan border)
+                vesicle_color = 0x33CCCC  # Bright cyan
+                gui.circles(vesicle_pos, radius=vesicle_radii, color=vesicle_color)
 
-                gui.circles(vesicle_pos, radius=vesicle_radii, color=vesicle_color_dark)
+                # Draw inner circle (background color) to create hollow effect
+                inner_radii = vesicle_radii * 0.85  # 85% of outer radius
+                gui.circles(
+                    vesicle_pos, radius=inner_radii, color=self.config.background_color
+                )
             gui.show()
 
             self.frame += 1

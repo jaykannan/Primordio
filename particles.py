@@ -48,24 +48,24 @@ class ParticleSystem:
                 self.fields.particle_temp[i] = ti.max(-0.5, self.fields.particle_temp[i])
 
             if particle_type == int(ParticleType.VESICLE):
-                # VESICLES: Move very slowly, stable
-                buoyancy_force = self.fields.particle_temp[i] * 0.03  # 5x slower
-                gravity_force = -self.fields.mass[i] * 0.005  # 5x slower
+                # VESICLES: Move moderately - slower than monomers but visible
+                buoyancy_force = self.fields.particle_temp[i] * 0.08  # ~50% of monomer speed
+                gravity_force = -self.fields.mass[i] * 0.015  # ~50% of monomer speed
 
                 self.fields.vel[i].y += (buoyancy_force + gravity_force) * self.config.dt
-                self.fields.vel[i] *= 0.95  # Strong damping
+                self.fields.vel[i] *= 0.97  # Moderate damping
 
                 # Minimal Brownian motion for vesicles
                 brownian_motion = ti.Vector([
-                    (ti.random() - 0.5) * 0.0005,
-                    (ti.random() - 0.5) * 0.0005,
+                    (ti.random() - 0.5) * 0.0008,
+                    (ti.random() - 0.5) * 0.0008,
                 ])
                 self.fields.pos[i] += brownian_motion
 
-                # Cap vesicle velocity very low
+                # Cap vesicle velocity moderately
                 vel_mag = ti.sqrt(self.fields.vel[i].x ** 2 + self.fields.vel[i].y ** 2)
-                if vel_mag > 0.02:  # Very slow max speed
-                    self.fields.vel[i] *= 0.02 / vel_mag
+                if vel_mag > 0.06:  # Moderate max speed (vs 0.15 for monomers)
+                    self.fields.vel[i] *= 0.06 / vel_mag
 
             else:  # MONOMERS
                 # Standard buoyancy/gravity
