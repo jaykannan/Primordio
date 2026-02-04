@@ -74,11 +74,12 @@ class PrimordialSoupSimulation:
             f"Temp: max={stats['max_temp']:.3f} min={stats['min_temp']:.3f} avg={stats['avg_temp']:.3f}"
         )
 
-    def get_particle_data(self) -> tuple[np.ndarray, np.ndarray]:
-        """Get particle positions and colors for rendering."""
+    def get_particle_data(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Get particle positions, colors, and radii for rendering."""
         positions = self.fields.pos.to_numpy()
         colors = self.fields.colors.to_numpy()
-        return positions, colors
+        radii = self.fields.radius.to_numpy()
+        return positions, colors, radii
 
     def run(self):
         """Run the simulation with GUI."""
@@ -99,7 +100,7 @@ class PrimordialSoupSimulation:
                 self.step()
 
             # Get particle data for rendering
-            positions, colors = self.get_particle_data()
+            positions, colors, radii = self.get_particle_data()
 
             # Convert RGB colors to hex format
             colors_hex = (colors * 255).astype(int)
@@ -107,8 +108,8 @@ class PrimordialSoupSimulation:
                 (colors_hex[:, 0] << 16) | (colors_hex[:, 1] << 8) | colors_hex[:, 2]
             )
 
-            # Render
-            gui.circles(positions, radius=self.config.particle_radius, color=colors_hex)
+            # Render with per-particle radii
+            gui.circles(positions, radius=radii, color=colors_hex)
             gui.show()
 
             self.frame += 1
