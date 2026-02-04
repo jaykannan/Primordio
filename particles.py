@@ -128,9 +128,12 @@ class ParticleSystem:
             # Vesicles always stay cyan - no color change
             self.fields.colors[i] = ti.Vector([0.2, 0.8, 0.8])
 
-        elif particle_type == int(ParticleType.MONOMER):
+        else:  # MONOMER
             # Monomers: base color from chemical property, fade with temperature
             prop = self.fields.chemical_property[i]
+
+            # Initialize base_color (required by Taichi)
+            base_color = ti.Vector([0.5, 0.5, 0.8])
 
             # Get base color for this chemical property
             if prop == int(ChemicalProperty.NONE):
@@ -151,7 +154,7 @@ class ParticleSystem:
                 base_color = ti.Vector([1.0, 0.0, 0.0])
             elif prop == int(ChemicalProperty.INCREASE_PH):
                 base_color = ti.Vector([1.0, 0.65, 0.0])
-            else:  # DECREASE_PH
+            elif prop == int(ChemicalProperty.DECREASE_PH):
                 base_color = ti.Vector([1.0, 1.0, 0.0])
 
             # Fade brightness based on temperature
