@@ -44,12 +44,14 @@ See [ABIOGENESIS.md](ABIOGENESIS.md) for detailed scientific background.
 - Randomly distributed throughout the soup
 - Subject to thermal currents and Brownian motion
 
-**Vesicles** (10 initial protocells):
-- Self-assembling membrane-bound structures
+**Vesicles** (25 initial protocells):
+- Self-assembling membrane-bound structures with autonomous motion
+- Move independently with light fluid influence (not driven by currents)
 - Absorb monomers from the environment
 - Grow based on absorbed chemical content
-- Divide when reaching critical size
-- Compete for resources
+- Divide explosively when reaching critical size (force scales with size²)
+- Compete for resources with size-dependent interactions
+- Experience ambient pressure repulsion from similar-sized neighbors
 
 ### Emergent Behaviors
 
@@ -97,10 +99,12 @@ Interesting phenomena to watch for:
 1. **Predator-Prey Dynamics**: Large vesicles hunt smaller ones
 2. **Defensive Clusters**: Vesicles with high repulsion resist absorption
 3. **Social Groups**: High-attraction vesicles form stable clusters
-4. **Division Events**: Watch vesicles split and push apart
-5. **Chemical Sorting**: Certain monomer types concentrate in successful lineages
-6. **Extinction Events**: Vesicles shrink and die when absorbed
-7. **Population Dynamics**: Vesicle count fluctuates due to division/absorption balance
+4. **Explosive Division Events**: Large vesicles split dramatically - violence scales with size²!
+5. **Autonomous Swimming**: Vesicles navigate independently with self-propelled motion
+6. **Size-Based Repulsion**: Similar-sized vesicles push apart due to ambient pressure
+7. **Chemical Sorting**: Certain monomer types concentrate in successful lineages
+8. **Extinction Events**: Vesicles shrink and die when absorbed
+9. **Population Dynamics**: Vesicle count fluctuates (now 25 initial protocells for richer interactions)
 
 ## Configuration
 
@@ -108,10 +112,12 @@ Edit `config.py` to adjust simulation parameters:
 
 ```python
 # Key parameters for experimentation
-n_particles: int = 5000          # Total chemical soup density
-vesicle_percentage: float = 0.002  # Initial protocell concentration
-division_size_min: float = 50.0   # Size threshold for reproduction
-growth_per_monomer: float = 0.08  # Growth rate from absorption
+n_particles: int = 5000           # Total chemical soup density
+vesicle_percentage: float = 0.005  # Initial protocell concentration (0.5% = 25 vesicles)
+division_size_min: float = 50.0    # Size threshold for reproduction
+growth_per_monomer: float = 0.08   # Growth rate from absorption
+vesicle_fluid_coupling: float = 0.05  # Light fluid influence (autonomous motion)
+division_push_strength: float = 0.001  # Violent size-scaled division repulsion
 ```
 
 See [MECHANICS.md](MECHANICS.md) for detailed parameter explanations.

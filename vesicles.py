@@ -73,14 +73,14 @@ class VesicleSystem:
                             dir_y = (monomer_pos.y - vesicle_pos.y) / dist
 
                             # Repulsion strength (stronger for closer particles)
-                            repulsion_strength = 0.008 * (1.0 - dist / vesicle_radius_normalized)
+                            repulsion_strength = self.config.absorption_rejection_repulsion * (1.0 - dist / vesicle_radius_normalized)
 
                             # Push vesicle away (horizontal bias: 2x horizontal force)
-                            self.fields.vel[i].x -= dir_x * repulsion_strength * 2.0
+                            self.fields.vel[i].x -= dir_x * repulsion_strength * self.config.horizontal_force_bias
                             self.fields.vel[i].y -= dir_y * repulsion_strength
 
                             # Push monomer away (horizontal bias: 2x horizontal force)
-                            self.fields.vel[j].x += dir_x * repulsion_strength * 2.0
+                            self.fields.vel[j].x += dir_x * repulsion_strength * self.config.horizontal_force_bias
                             self.fields.vel[j].y += dir_y * repulsion_strength
 
     @ti.kernel
@@ -96,7 +96,7 @@ class VesicleSystem:
 
             # Position monomer relative to parent vesicle center
             parent_pos = self.fields.pos[parent_id]
-            self.fields.pos[i] = parent_pos + self.fields.offset[i] * 0.5
+            self.fields.pos[i] = parent_pos + self.fields.offset[i] * self.config.absorbed_monomer_offset_scale
 
             # Monomers inside vesicles don't move independently
             self.fields.vel[i] = ti.Vector([0.0, 0.0])
@@ -112,10 +112,10 @@ class VesicleSystem:
         count = 0
 
         # Initialize averages to default values
-        absorption_avg = 0.5
-        division_avg = 0.5
-        attraction_avg = 0.5
-        repulsion_avg = 0.5
+        absorption_avg = self.config.default_bias_value
+        division_avg = self.config.default_bias_value
+        attraction_avg = self.config.default_bias_value
+        repulsion_avg = self.config.default_bias_value
 
         # Sum bias scores from all absorbed monomers
         for i in range(self.config.n_particles):
@@ -188,8 +188,8 @@ class VesicleSystem:
                     # Determine winner based on size AND absorption bias vs resistance
                     # Higher absorption bias gives competitive advantage
                     # Higher resistance makes vesicle harder to absorb
-                    effective_size_i = vesicle_i_radius * (0.5 + absorption_bias_i)
-                    effective_size_j = vesicle_j_radius * (0.5 + absorption_bias_j) * (1.0 + resistance_j * 0.5)
+                    effective_size_i = vesicle_i_radius * (self.config.absorption_bias_base + absorption_bias_i)
+                    effective_size_j = vesicle_j_radius * (self.config.absorption_bias_base + absorption_bias_j) * (1.0 + resistance_j * self.config.resistance_multiplier)
 
                     # If i is dominant, absorb j
                     if effective_size_i > effective_size_j:
@@ -214,11 +214,11 @@ class VesicleSystem:
 
                         # Shrink j, grow i
                         transfer_size = ti.min(
-                            vesicle_j_radius * 0.1,  # 10% of j's size
+                            vesicle_j_radius * self.config.transfer_size_fraction,
                             self.config.growth_per_monomer * self.config.monomer_move_rate
                         )
                         self.fields.radius[j] -= transfer_size
-                        self.fields.radius[i] += transfer_size * 0.8  # 80% efficiency
+                        self.fields.radius[i] += transfer_size * self.config.growth_efficiency
 
                         # Update stats
                         self.fields.monomers_eaten[i] += monomers_transferred
@@ -247,21 +247,21 @@ class VesicleSystem:
                     # Look for dead vesicles or free monomers to repurpose
                     if self.fields.particle_type[j] == int(ParticleType.VESICLE) and self.fields.radius[j] < self.config.death_radius:
                         # Create new vesicle at offset position
-                        offset_x = (ti.random() - 0.5) * 0.05
-                        offset_y = (ti.random() - 0.5) * 0.05
+                        offset_x = (ti.random() - 0.5) * self.config.division_offset_range
+                        offset_y = (ti.random() - 0.5) * self.config.division_offset_range
                         self.fields.pos[j] = self.fields.pos[i] + ti.Vector([offset_x, offset_y])
 
                         # Split size between parent and child
-                        new_radius = self.fields.radius[i] * 0.5
+                        new_radius = self.fields.radius[i] * self.config.division_size_split
                         self.fields.radius[i] = new_radius
                         self.fields.radius[j] = new_radius
 
                         # Initialize new vesicle properties
                         self.fields.particle_type[j] = int(ParticleType.VESICLE)
                         self.fields.radius_threshold[j] = self.config.division_size_min
-                        self.fields.vel[j] = self.fields.vel[i] * 0.5  # Inherit some velocity
+                        self.fields.vel[j] = self.fields.vel[i] * self.config.division_velocity_inheritance
                         self.fields.colors[j] = ti.Vector([0.2, 0.8, 0.8])
-                        self.fields.absorption_rate[j] = 0.005 + ti.random() * 0.045
+                        self.fields.absorption_rate[j] = self.config.absorption_rate_min + ti.random() * (self.config.absorption_rate_max - self.config.absorption_rate_min)
 
                         # Transfer half the monomers to new vesicle
                         monomers_to_transfer = self.fields.monomers_eaten[i] // 2
@@ -279,10 +279,13 @@ class VesicleSystem:
                         self.fields.monomers_eaten[i] = self.fields.monomers_eaten[i] - monomers_transferred
                         self.fields.monomers_eaten[j] = monomers_transferred
 
-                        # Push parent and child apart based on repulsion bias
+                        # Push parent and child apart based on repulsion bias and size
                         parent_bias = self.calculate_vesicle_bias(i)
                         child_bias = self.calculate_vesicle_bias(j)
-                        push_strength = (parent_bias[3] + child_bias[3]) * 0.015  # repulsion_bias
+                        # Violent size-scaled push - larger vesicles explode apart much harder
+                        # Uses squared radius for dramatic effect (25^2 = 625, 37^2 = 1369)
+                        size_factor = new_radius * new_radius
+                        push_strength = (parent_bias[3] + child_bias[3]) * self.config.division_push_strength * size_factor
 
                         # Direction from parent to child
                         dir_x = self.fields.pos[j].x - self.fields.pos[i].x
@@ -293,10 +296,10 @@ class VesicleSystem:
                             dir_x /= dist
                             dir_y /= dist
 
-                            # Push them apart (2x horizontal bias)
-                            self.fields.vel[i].x -= dir_x * push_strength * 2.0
+                            # Push them apart (horizontal bias)
+                            self.fields.vel[i].x -= dir_x * push_strength * self.config.horizontal_force_bias
                             self.fields.vel[i].y -= dir_y * push_strength
-                            self.fields.vel[j].x += dir_x * push_strength * 2.0
+                            self.fields.vel[j].x += dir_x * push_strength * self.config.horizontal_force_bias
                             self.fields.vel[j].y += dir_y * push_strength
 
                         break  # Only create one child per division event
@@ -335,7 +338,7 @@ class VesicleSystem:
                     + (vesicle_i_pos.y - vesicle_j_pos.y) ** 2
                 )
 
-                if dist > 0.0001 and dist < 0.15:  # Interaction range
+                if dist > 0.0001 and dist < self.config.interaction_range:
                     # Calculate j's biases
                     bias_j = self.calculate_vesicle_bias(j)
                     attraction_bias_j = bias_j[2]
@@ -353,15 +356,15 @@ class VesicleSystem:
 
                     # Ambient pressure: stronger repulsion for similar-sized vesicles
                     # Simulates fluid mechanics and pressure equilibrium
-                    ambient_pressure = size_ratio * 0.0008
+                    ambient_pressure = size_ratio * self.config.ambient_pressure_strength
 
                     # Net attraction/repulsion based on both vesicles' biases
-                    attraction_strength = (attraction_bias_i + attraction_bias_j) * 0.0003
-                    repulsion_strength = (repulsion_bias_i + repulsion_bias_j) * 0.0005 + ambient_pressure
+                    attraction_strength = (attraction_bias_i + attraction_bias_j) * self.config.attraction_strength_multiplier
+                    repulsion_strength = (repulsion_bias_i + repulsion_bias_j) * self.config.repulsion_strength_multiplier + ambient_pressure
 
                     # Net force (positive = attract, negative = repel)
                     net_force = attraction_strength - repulsion_strength
 
-                    # Apply force (2x horizontal bias)
-                    self.fields.vel[i].x += dir_x * net_force * 2.0
+                    # Apply force (horizontal bias)
+                    self.fields.vel[i].x += dir_x * net_force * self.config.horizontal_force_bias
                     self.fields.vel[i].y += dir_y * net_force

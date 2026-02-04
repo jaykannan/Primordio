@@ -48,14 +48,15 @@ class ParticleSystem:
                 self.fields.particle_temp[i] = ti.max(-0.5, self.fields.particle_temp[i])
 
             if particle_type == int(ParticleType.VESICLE):
-                # VESICLES: Move moderately - slower than monomers but visible
+                # VESICLES: Autonomous motion with light environmental influence
                 buoyancy_force = self.fields.particle_temp[i] * 0.08  # ~50% of monomer speed
                 gravity_force = -self.fields.mass[i] * 0.015  # ~50% of monomer speed
 
                 self.fields.vel[i].y += (buoyancy_force + gravity_force) * self.config.dt
-                self.fields.vel[i] *= 0.97  # Moderate damping
+                # Maintain momentum with slight decay
+                self.fields.vel[i] *= self.config.vesicle_damping
 
-                # Fluid coupling for vesicles (respond to convection currents)
+                # Light fluid coupling - vesicles influenced but not driven by currents
                 fluid_vel = self.physics.sample_bilinear(
                     self.fields.velocity_field,
                     self.fields.pos[i].x,
@@ -63,21 +64,20 @@ class ParticleSystem:
                 )
                 self.fields.vel[i] += fluid_vel * self.config.vesicle_fluid_coupling * self.config.dt
 
-                # Enhanced horizontal drift for vesicles (simulate repelling forces)
-                horizontal_bias = (ti.random() - 0.5) * 0.015  # Strong horizontal drift to avoid edge sticking
-                self.fields.vel[i].x += horizontal_bias
+                # Autonomous horizontal drift (primary lateral motion)
+                horizontal_drift = (ti.random() - 0.5) * self.config.vesicle_horizontal_drift
+                self.fields.vel[i].x += horizontal_drift
 
-                # Minimal Brownian motion for vesicles (more horizontal)
-                brownian_motion = ti.Vector([
-                    (ti.random() - 0.5) * 0.003,  # 4x stronger horizontal
-                    (ti.random() - 0.5) * 0.0005,  # Reduced vertical
-                ])
-                self.fields.pos[i] += brownian_motion
+                # Autonomous Brownian motion (self-driven, not environmental)
+                brownian_x = (ti.random() - 0.5) * self.config.vesicle_brownian_horizontal
+                brownian_y = (ti.random() - 0.5) * self.config.vesicle_brownian_vertical
+                self.fields.vel[i].x += brownian_x
+                self.fields.vel[i].y += brownian_y
 
-                # Cap vesicle velocity moderately
+                # Cap vesicle velocity
                 vel_mag = ti.sqrt(self.fields.vel[i].x ** 2 + self.fields.vel[i].y ** 2)
-                if vel_mag > 0.06:  # Moderate max speed (vs 0.15 for monomers)
-                    self.fields.vel[i] *= 0.06 / vel_mag
+                if vel_mag > self.config.vesicle_max_velocity:
+                    self.fields.vel[i] *= self.config.vesicle_max_velocity / vel_mag
 
             else:  # MONOMERS
                 # Standard buoyancy/gravity
@@ -122,48 +122,48 @@ class ParticleSystem:
                 # VESICLES: Wrap horizontally, bounce vertically
 
                 # Add edge repulsion to prevent sticking near boundaries
-                edge_margin = 0.05  # 5% from each edge
+                edge_margin = self.config.edge_repulsion_margin
                 edge_repulsion = 0.0
 
                 # Repel from left edge
                 if self.fields.pos[i].x < edge_margin:
-                    edge_repulsion = (edge_margin - self.fields.pos[i].x) * 0.02
+                    edge_repulsion = (edge_margin - self.fields.pos[i].x) * self.config.edge_repulsion_strength
                     self.fields.vel[i].x += edge_repulsion
 
                 # Repel from right edge
                 if self.fields.pos[i].x > (1.0 - edge_margin):
-                    edge_repulsion = (self.fields.pos[i].x - (1.0 - edge_margin)) * 0.02
+                    edge_repulsion = (self.fields.pos[i].x - (1.0 - edge_margin)) * self.config.edge_repulsion_strength
                     self.fields.vel[i].x -= edge_repulsion
 
                 # Horizontal wrapping (periodic boundary with minimal dampening)
                 if self.fields.pos[i].x < 0:
                     self.fields.pos[i].x += 1.0
-                    self.fields.vel[i].x *= 0.7  # Light dampen (was 0.3)
+                    self.fields.vel[i].x *= self.config.vesicle_boundary_dampening_horizontal
                 if self.fields.pos[i].x > 1:
                     self.fields.pos[i].x -= 1.0
-                    self.fields.vel[i].x *= 0.7  # Light dampen (was 0.3)
+                    self.fields.vel[i].x *= self.config.vesicle_boundary_dampening_horizontal
 
                 # Vertical boundaries (bounce at top/bottom surfaces)
-                if self.fields.pos[i].y < 0.02:  # Bottom surface with margin
-                    self.fields.pos[i].y = 0.02
-                    self.fields.vel[i].y = -self.fields.vel[i].y * 0.4  # Reverse and dampen
-                if self.fields.pos[i].y > 0.98:  # Top surface with margin
-                    self.fields.pos[i].y = 0.98
-                    self.fields.vel[i].y = -self.fields.vel[i].y * 0.4  # Reverse and dampen
+                if self.fields.pos[i].y < self.config.vesicle_surface_margin_bottom:
+                    self.fields.pos[i].y = self.config.vesicle_surface_margin_bottom
+                    self.fields.vel[i].y = -self.fields.vel[i].y * self.config.vesicle_boundary_dampening_vertical
+                if self.fields.pos[i].y > self.config.vesicle_surface_margin_top:
+                    self.fields.pos[i].y = self.config.vesicle_surface_margin_top
+                    self.fields.vel[i].y = -self.fields.vel[i].y * self.config.vesicle_boundary_dampening_vertical
             else:
                 # MONOMERS: Wrap on all boundaries (can flow through)
                 if self.fields.pos[i].x < 0:
                     self.fields.pos[i].x += 1.0
-                    self.fields.vel[i].x *= 0.3  # Dampen horizontal velocity
+                    self.fields.vel[i].x *= self.config.monomer_boundary_dampening_horizontal
                 if self.fields.pos[i].x > 1:
                     self.fields.pos[i].x -= 1.0
-                    self.fields.vel[i].x *= 0.3  # Dampen horizontal velocity
+                    self.fields.vel[i].x *= self.config.monomer_boundary_dampening_horizontal
                 if self.fields.pos[i].y < 0:
                     self.fields.pos[i].y += 1.0
-                    self.fields.vel[i].y *= 0.5  # Dampen vertical velocity
+                    self.fields.vel[i].y *= self.config.monomer_boundary_dampening_vertical
                 if self.fields.pos[i].y > 1:
                     self.fields.pos[i].y -= 1.0
-                    self.fields.vel[i].y *= 0.5  # Dampen vertical velocity
+                    self.fields.vel[i].y *= self.config.monomer_boundary_dampening_vertical
 
             # Update color
             self._update_particle_color(i)
