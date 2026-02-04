@@ -4,6 +4,7 @@ import taichi as ti
 from config import SimulationConfig
 
 
+@ti.data_oriented
 class SimulationFields:
     """Container for all Taichi fields used in the simulation."""
 

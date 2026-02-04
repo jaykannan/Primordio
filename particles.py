@@ -6,6 +6,7 @@ from fields import SimulationFields
 from physics import FluidPhysics
 
 
+@ti.data_oriented
 class ParticleSystem:
     """Handles particle dynamics and rendering."""
 

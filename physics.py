@@ -5,6 +5,7 @@ from config import SimulationConfig
 from fields import SimulationFields
 
 
+@ti.data_oriented
 class FluidPhysics:
     """Handles fluid dynamics computations."""
 
