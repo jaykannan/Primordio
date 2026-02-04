@@ -345,9 +345,19 @@ class VesicleSystem:
                     dir_x = (vesicle_j_pos.x - vesicle_i_pos.x) / dist
                     dir_y = (vesicle_j_pos.y - vesicle_i_pos.y) / dist
 
+                    # Calculate size similarity for ambient pressure effects
+                    vesicle_i_radius = self.fields.radius[i]
+                    vesicle_j_radius = self.fields.radius[j]
+                    # Size ratio: 1.0 = identical sizes, 0.0 = very different
+                    size_ratio = ti.min(vesicle_i_radius, vesicle_j_radius) / ti.max(vesicle_i_radius, vesicle_j_radius)
+
+                    # Ambient pressure: stronger repulsion for similar-sized vesicles
+                    # Simulates fluid mechanics and pressure equilibrium
+                    ambient_pressure = size_ratio * 0.0008
+
                     # Net attraction/repulsion based on both vesicles' biases
                     attraction_strength = (attraction_bias_i + attraction_bias_j) * 0.0003
-                    repulsion_strength = (repulsion_bias_i + repulsion_bias_j) * 0.0005
+                    repulsion_strength = (repulsion_bias_i + repulsion_bias_j) * 0.0005 + ambient_pressure
 
                     # Net force (positive = attract, negative = repel)
                     net_force = attraction_strength - repulsion_strength

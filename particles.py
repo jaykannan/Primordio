@@ -64,7 +64,7 @@ class ParticleSystem:
                 self.fields.vel[i] += fluid_vel * self.config.vesicle_fluid_coupling * self.config.dt
 
                 # Enhanced horizontal drift for vesicles (simulate repelling forces)
-                horizontal_bias = (ti.random() - 0.5) * 0.008  # 10x stronger horizontal drift
+                horizontal_bias = (ti.random() - 0.5) * 0.015  # Strong horizontal drift to avoid edge sticking
                 self.fields.vel[i].x += horizontal_bias
 
                 # Minimal Brownian motion for vesicles (more horizontal)
@@ -117,19 +117,53 @@ class ParticleSystem:
             # Update position
             self.fields.pos[i] += self.fields.vel[i] * self.config.dt
 
-            # Wrap around boundaries with velocity dampening to prevent flickering
-            if self.fields.pos[i].x < 0:
-                self.fields.pos[i].x += 1.0
-                self.fields.vel[i].x *= 0.3  # Dampen horizontal velocity
-            if self.fields.pos[i].x > 1:
-                self.fields.pos[i].x -= 1.0
-                self.fields.vel[i].x *= 0.3  # Dampen horizontal velocity
-            if self.fields.pos[i].y < 0:
-                self.fields.pos[i].y += 1.0
-                self.fields.vel[i].y *= 0.5  # Dampen vertical velocity
-            if self.fields.pos[i].y > 1:
-                self.fields.pos[i].y -= 1.0
-                self.fields.vel[i].y *= 0.5  # Dampen vertical velocity
+            # Boundary handling: different for vesicles vs monomers
+            if particle_type == int(ParticleType.VESICLE):
+                # VESICLES: Wrap horizontally, bounce vertically
+
+                # Add edge repulsion to prevent sticking near boundaries
+                edge_margin = 0.05  # 5% from each edge
+                edge_repulsion = 0.0
+
+                # Repel from left edge
+                if self.fields.pos[i].x < edge_margin:
+                    edge_repulsion = (edge_margin - self.fields.pos[i].x) * 0.02
+                    self.fields.vel[i].x += edge_repulsion
+
+                # Repel from right edge
+                if self.fields.pos[i].x > (1.0 - edge_margin):
+                    edge_repulsion = (self.fields.pos[i].x - (1.0 - edge_margin)) * 0.02
+                    self.fields.vel[i].x -= edge_repulsion
+
+                # Horizontal wrapping (periodic boundary with minimal dampening)
+                if self.fields.pos[i].x < 0:
+                    self.fields.pos[i].x += 1.0
+                    self.fields.vel[i].x *= 0.7  # Light dampen (was 0.3)
+                if self.fields.pos[i].x > 1:
+                    self.fields.pos[i].x -= 1.0
+                    self.fields.vel[i].x *= 0.7  # Light dampen (was 0.3)
+
+                # Vertical boundaries (bounce at top/bottom surfaces)
+                if self.fields.pos[i].y < 0.02:  # Bottom surface with margin
+                    self.fields.pos[i].y = 0.02
+                    self.fields.vel[i].y = -self.fields.vel[i].y * 0.4  # Reverse and dampen
+                if self.fields.pos[i].y > 0.98:  # Top surface with margin
+                    self.fields.pos[i].y = 0.98
+                    self.fields.vel[i].y = -self.fields.vel[i].y * 0.4  # Reverse and dampen
+            else:
+                # MONOMERS: Wrap on all boundaries (can flow through)
+                if self.fields.pos[i].x < 0:
+                    self.fields.pos[i].x += 1.0
+                    self.fields.vel[i].x *= 0.3  # Dampen horizontal velocity
+                if self.fields.pos[i].x > 1:
+                    self.fields.pos[i].x -= 1.0
+                    self.fields.vel[i].x *= 0.3  # Dampen horizontal velocity
+                if self.fields.pos[i].y < 0:
+                    self.fields.pos[i].y += 1.0
+                    self.fields.vel[i].y *= 0.5  # Dampen vertical velocity
+                if self.fields.pos[i].y > 1:
+                    self.fields.pos[i].y -= 1.0
+                    self.fields.vel[i].y *= 0.5  # Dampen vertical velocity
 
             # Update color
             self._update_particle_color(i)
