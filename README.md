@@ -40,16 +40,10 @@ taichi = ">=1.7.2"
 
 ## Installation
 
-Using [uv](https://github.com/astral-sh/uv):
+This project uses [uv](https://github.com/astral-sh/uv) for dependency management:
 
 ```bash
 uv sync
-```
-
-Or with pip:
-
-```bash
-pip install -r requirements.txt
 ```
 
 ## Usage
