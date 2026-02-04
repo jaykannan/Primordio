@@ -213,3 +213,4 @@ If you use this simulation in research, please cite:
 ---
 
 **Note**: This is a simplified model for exploring concepts in abiogenesis research. It does not claim to replicate the actual chemistry of early Earth, but rather demonstrates principles that may have been relevant to the origin of life.
+
