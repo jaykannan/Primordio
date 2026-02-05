@@ -240,8 +240,15 @@ class VesicleSystem:
             bias = self.calculate_vesicle_bias(i)
             division_bias = bias[1]
 
-            # Probabilistic division based on bias (higher bias = more likely)
-            division_probability = division_bias * self.config.mechanical_event_probability
+            # Size-dependent instability: larger vesicles are more mechanically unstable
+            # At min size (50px): instability = 1.0 (base probability)
+            # At 75px: instability = 2.0 (2× more likely)
+            # At 100px: instability = 3.0 (3× more likely)
+            size_excess = ti.max(0.0, self.fields.radius[i] - self.config.division_size_min)
+            size_instability = 1.0 + (size_excess / self.config.division_size_min) * self.config.division_size_instability
+
+            # Probabilistic division based on bias and size instability
+            division_probability = division_bias * self.config.mechanical_event_probability * size_instability
             if ti.random() < division_probability:
                 parent_radius = self.fields.radius[i]
 

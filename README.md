@@ -53,9 +53,10 @@ See [ABIOGENESIS.md](ABIOGENESIS.md) for detailed scientific background.
   - Small vesicles (50-60px): 2-way split
   - Medium vesicles (60-70px): 3-way split
   - Large vesicles (70+px): 4-way explosive fragmentation
+  - **Mechanical instability**: Division probability increases with size (larger = more unstable)
   - Force scales with parent size² for dramatic effect
 - Compete for resources with size-dependent interactions
-- Experience ambient pressure repulsion from similar-sized neighbors
+- Experience **strong ambient pressure** repulsion from similar-sized neighbors
 
 ### Emergent Behaviors
 
@@ -119,9 +120,11 @@ Edit `config.py` to adjust simulation parameters:
 n_particles: int = 5000           # Total chemical soup density
 vesicle_percentage: float = 0.005  # Initial protocell concentration (0.5% = 25 vesicles)
 division_size_min: float = 50.0    # Size threshold for reproduction
+division_size_instability: float = 2.0  # Size-dependent instability multiplier
 growth_per_monomer: float = 0.08   # Growth rate from absorption
 vesicle_fluid_coupling: float = 0.05  # Light fluid influence (autonomous motion)
 division_push_strength: float = 0.001  # Violent size-scaled division repulsion
+ambient_pressure_strength: float = 0.004  # Strong pressure between similar-sized vesicles
 ```
 
 See [MECHANICS.md](MECHANICS.md) for detailed parameter explanations.

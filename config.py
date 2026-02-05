@@ -94,6 +94,7 @@ class SimulationConfig:
     division_size_split: float = 0.5  # Size split ratio (50% each)
     division_velocity_inheritance: float = 0.5  # Velocity inherited by child (50%)
     division_push_strength: float = 0.001  # Base push strength multiplier (violent size-scaled repulsion)
+    division_size_instability: float = 2.0  # Multiplier for size-dependent division probability
     absorption_rate_min: float = 0.005  # Minimum absorption rate (0.5%)
     absorption_rate_max: float = 0.05  # Maximum absorption rate (5%)
 
@@ -104,7 +105,7 @@ class SimulationConfig:
 
     # Vesicle interaction mechanics
     interaction_range: float = 0.15  # Maximum distance for vesicle-vesicle interactions
-    ambient_pressure_strength: float = 0.0008  # Strength of size-similarity repulsion
+    ambient_pressure_strength: float = 0.004  # Strength of size-similarity repulsion (5× stronger)
     attraction_strength_multiplier: float = 0.0003  # Multiplier for attraction forces
     repulsion_strength_multiplier: float = 0.0005  # Multiplier for repulsion forces
 
