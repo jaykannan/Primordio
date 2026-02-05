@@ -49,11 +49,17 @@ See [ABIOGENESIS.md](ABIOGENESIS.md) for detailed scientific background.
 - Move independently with light fluid influence (not driven by currents)
 - Absorb monomers from the environment
 - Grow based on absorbed chemical content
+- **Polymer chain formation**: Internal pressure causes monomers to polymerize
+  - Polymers stabilize vesicles (reduced division probability)
+  - Higher monomer count = faster polymerization
+  - Polymers break apart during division (50% retained)
 - Divide explosively when reaching critical size with **multi-way splitting**:
   - Small vesicles (50-60px): 2-way split
   - Medium vesicles (60-70px): 3-way split
   - Large vesicles (70+px): 4-way explosive fragmentation
   - **Mechanical instability**: Division probability increases with size (larger = more unstable)
+  - **Polymer stability**: High polymer levels resist division
+  - **Monomer loss**: 15% of monomers escape during violent splitting
   - Force scales with parent size² for dramatic effect
 - Compete for resources with size-dependent interactions
 - Experience **strong ambient pressure** repulsion from similar-sized neighbors
@@ -104,12 +110,13 @@ Interesting phenomena to watch for:
 1. **Predator-Prey Dynamics**: Large vesicles hunt smaller ones
 2. **Defensive Clusters**: Vesicles with high repulsion resist absorption
 3. **Social Groups**: High-attraction vesicles form stable clusters
-4. **Multi-Way Division Events**: Large vesicles fragment into 2, 3, or 4 pieces depending on size - spectacular explosive splits!
-5. **Autonomous Swimming**: Vesicles navigate independently with self-propelled motion
-6. **Size-Based Repulsion**: Similar-sized vesicles push apart due to ambient pressure
-7. **Chemical Sorting**: Certain monomer types concentrate in successful lineages
-8. **Extinction Events**: Vesicles shrink and die when absorbed
-9. **Population Dynamics**: Vesicle count fluctuates (now 25 initial protocells for richer interactions)
+4. **Multi-Way Division Events**: Large vesicles fragment into 2, 3, or 4 pieces - spectacular explosive splits with monomer loss!
+5. **Polymer Stabilization**: Crowded vesicles form internal polymer chains that resist splitting
+6. **Autonomous Swimming**: Vesicles navigate independently with self-propelled motion
+7. **Size-Based Repulsion**: Similar-sized vesicles push apart due to ambient pressure
+8. **Chemical Sorting**: Certain monomer types concentrate in successful lineages
+9. **Extinction Events**: Vesicles shrink and die when absorbed
+10. **Population Dynamics**: Vesicle count fluctuates with competition, polymers, and explosive divisions
 
 ## Configuration
 
@@ -121,10 +128,15 @@ n_particles: int = 5000           # Total chemical soup density
 vesicle_percentage: float = 0.005  # Initial protocell concentration (0.5% = 25 vesicles)
 division_size_min: float = 50.0    # Size threshold for reproduction
 division_size_instability: float = 2.0  # Size-dependent instability multiplier
+division_monomer_loss: float = 0.15  # Fraction of monomers lost during division (15%)
 growth_per_monomer: float = 0.08   # Growth rate from absorption
 vesicle_fluid_coupling: float = 0.05  # Light fluid influence (autonomous motion)
 division_push_strength: float = 0.001  # Violent size-scaled division repulsion
 ambient_pressure_strength: float = 0.004  # Strong pressure between similar-sized vesicles
+
+# Polymer mechanics
+polymerization_rate: float = 0.001  # Rate of polymer formation per frame
+polymer_stability_factor: float = 0.5  # Division resistance from polymers
 ```
 
 See [MECHANICS.md](MECHANICS.md) for detailed parameter explanations.

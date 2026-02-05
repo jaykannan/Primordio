@@ -43,6 +43,7 @@ class SimulationFields:
         self.life_timer = ti.field(dtype=ti.f32, shape=config.n_particles)
         self.volume_growth = ti.field(dtype=ti.f32, shape=config.n_particles)
         self.absorption_rate = ti.field(dtype=ti.f32, shape=config.n_particles)  # Per-vesicle absorption probability
+        self.polymer_level = ti.field(dtype=ti.f32, shape=config.n_particles)  # Polymerization level (0-1, higher = more stable)
 
         # Fluid grid fields
         self.velocity_field = ti.Vector.field(
@@ -109,6 +110,9 @@ class SimulationFields:
 
                 # Random absorption rate per vesicle
                 self.absorption_rate[i] = self.config.absorption_rate_min + ti.random() * (self.config.absorption_rate_max - self.config.absorption_rate_min)
+
+                # Initial polymer level (starts at 0, builds up over time)
+                self.polymer_level[i] = 0.0
 
                 # Vesicle color (cyan/green to distinguish from monomers)
                 self.colors[i] = ti.Vector([0.2, 0.8, 0.8])

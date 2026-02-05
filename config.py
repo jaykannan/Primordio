@@ -95,8 +95,14 @@ class SimulationConfig:
     division_velocity_inheritance: float = 0.5  # Velocity inherited by child (50%)
     division_push_strength: float = 0.001  # Base push strength multiplier (violent size-scaled repulsion)
     division_size_instability: float = 2.0  # Multiplier for size-dependent division probability
+    division_monomer_loss: float = 0.15  # Fraction of monomers lost during division (15%)
     absorption_rate_min: float = 0.005  # Minimum absorption rate (0.5%)
     absorption_rate_max: float = 0.05  # Maximum absorption rate (5%)
+
+    # Polymerization mechanics
+    polymerization_rate: float = 0.001  # Rate of polymer formation per frame per absorbed monomer
+    polymerization_pressure_threshold: int = 10  # Minimum absorbed monomers for polymerization
+    polymer_stability_factor: float = 0.5  # Division probability reduction per polymer level (0-1)
 
     # Multi-way division thresholds
     division_2way_max: float = 60.0  # Maximum radius for 2-way split

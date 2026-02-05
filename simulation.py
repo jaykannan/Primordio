@@ -56,6 +56,9 @@ class PrimordialSoupSimulation:
         self.vesicles.absorb_monomers()
         self.vesicles.update_absorbed_monomers()
 
+        # Polymerization: internal pressure causes monomers to form polymer chains
+        self.vesicles.polymerize_monomers()
+
         # Vesicle-vesicle interactions (competition, division, attraction/repulsion)
         self.vesicles.vesicle_competition()
         self.vesicles.vesicle_division()
@@ -68,6 +71,7 @@ class PrimordialSoupSimulation:
         parents = self.fields.parent_vesicle.to_numpy()
         radii = self.fields.radius.to_numpy()
         types = self.fields.particle_type.to_numpy()
+        polymer_levels = self.fields.polymer_level.to_numpy()
 
         vel_mag = (vel_field[:, :, 0] ** 2 + vel_field[:, :, 1] ** 2) ** 0.5
 
@@ -79,6 +83,8 @@ class PrimordialSoupSimulation:
         vesicle_count = vesicle_mask.sum()
         avg_vesicle_radius = radii[vesicle_mask].mean() if vesicle_mask.any() else 0
         max_vesicle_radius = radii[vesicle_mask].max() if vesicle_mask.any() else 0
+        avg_polymer_level = polymer_levels[vesicle_mask].mean() if vesicle_mask.any() else 0
+        max_polymer_level = polymer_levels[vesicle_mask].max() if vesicle_mask.any() else 0
 
         return {
             "max_velocity": vel_mag.max(),
@@ -90,6 +96,8 @@ class PrimordialSoupSimulation:
             "vesicle_count": vesicle_count,
             "avg_vesicle_radius": avg_vesicle_radius,
             "max_vesicle_radius": max_vesicle_radius,
+            "avg_polymer_level": avg_polymer_level,
+            "max_polymer_level": max_polymer_level,
         }
 
     def print_stats(self):
@@ -100,6 +108,7 @@ class PrimordialSoupSimulation:
             f"Vesicles: {stats['vesicle_count']:2d} | "
             f"Absorbed: {stats['absorbed_monomers']:4d} | "
             f"Vesicle R: avg={stats['avg_vesicle_radius']:.1f} max={stats['max_vesicle_radius']:.1f} | "
+            f"Polymer: avg={stats['avg_polymer_level']:.2f} max={stats['max_polymer_level']:.2f} | "
             f"Vel: max={stats['max_velocity']:.3f}"
         )
 

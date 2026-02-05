@@ -101,6 +101,30 @@ class VesicleSystem:
             # Monomers inside vesicles don't move independently
             self.fields.vel[i] = ti.Vector([0.0, 0.0])
 
+    @ti.kernel
+    def polymerize_monomers(self):
+        """Monomers inside vesicles polymerize due to internal pressure, stabilizing the vesicle."""
+        for i in self.fields.pos:
+            if self.fields.particle_type[i] != int(ParticleType.VESICLE):
+                continue
+
+            # Skip dead vesicles
+            if self.fields.radius[i] < self.config.death_radius:
+                continue
+
+            # Polymerization occurs when internal pressure is high (many absorbed monomers)
+            absorbed_count = self.fields.monomers_eaten[i]
+
+            if absorbed_count >= self.config.polymerization_pressure_threshold:
+                # Polymerization rate increases with internal pressure
+                # More monomers = more collisions = faster polymerization
+                pressure_factor = float(absorbed_count) / float(self.config.polymerization_pressure_threshold)
+                polymerization_increment = self.config.polymerization_rate * pressure_factor
+
+                # Increase polymer level (capped at 1.0)
+                self.fields.polymer_level[i] += polymerization_increment
+                self.fields.polymer_level[i] = ti.min(1.0, self.fields.polymer_level[i])
+
     @ti.func
     def calculate_vesicle_bias(self, vesicle_id: int) -> ti.types.vector(4, ti.f32):
         """Calculate aggregate bias scores for a vesicle based on its absorbed monomers.
@@ -247,8 +271,13 @@ class VesicleSystem:
             size_excess = ti.max(0.0, self.fields.radius[i] - self.config.division_size_min)
             size_instability = 1.0 + (size_excess / self.config.division_size_min) * self.config.division_size_instability
 
-            # Probabilistic division based on bias and size instability
-            division_probability = division_bias * self.config.mechanical_event_probability * size_instability
+            # Polymer stability: polymerized vesicles are more stable (less likely to divide)
+            # At polymer_level = 0.0: stability = 1.0 (no reduction)
+            # At polymer_level = 1.0: stability = 0.5 (50% reduction with default factor)
+            polymer_stability = 1.0 - (self.fields.polymer_level[i] * self.config.polymer_stability_factor)
+
+            # Probabilistic division based on bias, size instability, and polymer stability
+            division_probability = division_bias * self.config.mechanical_event_probability * size_instability * polymer_stability
             if ti.random() < division_probability:
                 parent_radius = self.fields.radius[i]
 
@@ -278,9 +307,30 @@ class VesicleSystem:
                     # For circles: π*r_p² = N * π*r_c² → r_c = r_p / sqrt(N)
                     child_radius = parent_radius / ti.sqrt(float(num_children))
 
-                    # Calculate monomers per child
+                    # Monomer loss during violent division (some monomers escape)
                     total_monomers = self.fields.monomers_eaten[i]
-                    monomers_per_child = total_monomers // num_children
+                    monomers_to_lose = int(float(total_monomers) * self.config.division_monomer_loss)
+                    monomers_lost = 0
+
+                    # Release lost monomers back into environment with explosive velocity
+                    for k in range(self.config.n_particles):
+                        if monomers_lost >= monomers_to_lose:
+                            break
+
+                        if self.fields.parent_vesicle[k] == i:
+                            # Release this monomer
+                            self.fields.parent_vesicle[k] = -1
+
+                            # Give it explosive velocity away from parent
+                            angle = ti.random() * 6.28318  # Random direction
+                            speed = 0.02 + ti.random() * 0.03  # Random speed
+                            self.fields.vel[k] = ti.Vector([ti.cos(angle) * speed, ti.sin(angle) * speed])
+
+                            monomers_lost += 1
+
+                    # Calculate monomers per child from remaining monomers
+                    remaining_monomers = total_monomers - monomers_lost
+                    monomers_per_child = remaining_monomers // num_children
 
                     # Get parent bias for push calculations
                     parent_bias = self.calculate_vesicle_bias(i)
@@ -306,6 +356,9 @@ class VesicleSystem:
                         self.fields.colors[j] = ti.Vector([0.2, 0.8, 0.8])
                         self.fields.absorption_rate[j] = self.config.absorption_rate_min + ti.random() * (self.config.absorption_rate_max - self.config.absorption_rate_min)
 
+                        # Inherit polymer level from parent (but reduced - polymers break during division)
+                        self.fields.polymer_level[j] = self.fields.polymer_level[i] * 0.5  # 50% retained
+
                         # Transfer monomers to this child
                         monomers_transferred = 0
                         for k in range(self.config.n_particles):
@@ -329,6 +382,8 @@ class VesicleSystem:
                     # Update parent (becomes first child)
                     self.fields.radius[i] = child_radius
                     self.fields.monomers_eaten[i] = total_monomers - (monomers_per_child * (num_children - 1))
+                    # Parent's polymers also break during division
+                    self.fields.polymer_level[i] *= 0.5
 
                     # Apply violent mutual repulsion between all children (including parent)
                     # Collect all child IDs including parent
