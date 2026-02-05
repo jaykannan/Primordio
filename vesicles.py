@@ -226,7 +226,8 @@ class VesicleSystem:
 
     @ti.kernel
     def vesicle_division(self):
-        """Vesicles divide when they reach division size, based on division bias."""
+        """Vesicles divide when they reach division size, based on division bias.
+        Larger vesicles split into more children: 2-way, 3-way, or 4-way splits."""
         for i in self.fields.pos:
             if self.fields.particle_type[i] != int(ParticleType.VESICLE):
                 continue
@@ -242,33 +243,66 @@ class VesicleSystem:
             # Probabilistic division based on bias (higher bias = more likely)
             division_probability = division_bias * self.config.mechanical_event_probability
             if ti.random() < division_probability:
-                # Find an empty particle slot to create new vesicle
+                parent_radius = self.fields.radius[i]
+
+                # Determine number of children based on size
+                num_children = 2  # Default: 2-way split
+                if parent_radius > self.config.division_3way_max:
+                    num_children = 4  # Large vesicles: 4-way split
+                elif parent_radius > self.config.division_2way_max:
+                    num_children = 3  # Medium vesicles: 3-way split
+
+                # Find empty slots for all children
+                child_slots = ti.Vector([-1, -1, -1, -1])  # Max 4 children
+                slots_found = 0
+
                 for j in range(self.config.n_particles):
-                    # Look for dead vesicles or free monomers to repurpose
+                    if slots_found >= num_children:
+                        break
+
+                    # Look for dead vesicles to repurpose
                     if self.fields.particle_type[j] == int(ParticleType.VESICLE) and self.fields.radius[j] < self.config.death_radius:
-                        # Create new vesicle at offset position
-                        offset_x = (ti.random() - 0.5) * self.config.division_offset_range
-                        offset_y = (ti.random() - 0.5) * self.config.division_offset_range
+                        child_slots[slots_found] = j
+                        slots_found += 1
+
+                # Only proceed if we found enough slots
+                if slots_found >= num_children:
+                    # Calculate child radius (conserve area: A_parent = N * A_child)
+                    # For circles: π*r_p² = N * π*r_c² → r_c = r_p / sqrt(N)
+                    child_radius = parent_radius / ti.sqrt(float(num_children))
+
+                    # Calculate monomers per child
+                    total_monomers = self.fields.monomers_eaten[i]
+                    monomers_per_child = total_monomers // num_children
+
+                    # Get parent bias for push calculations
+                    parent_bias = self.calculate_vesicle_bias(i)
+
+                    # Create all children positioned in a circle around parent
+                    for child_idx in range(num_children):
+                        j = child_slots[child_idx]
+
+                        # Position in a circle around parent (evenly spaced angles)
+                        angle = (float(child_idx) / float(num_children)) * 6.28318  # 2*pi
+                        offset_distance = self.config.division_offset_range * 2.0  # Larger spread for multi-way
+                        offset_x = ti.cos(angle) * offset_distance
+                        offset_y = ti.sin(angle) * offset_distance
                         self.fields.pos[j] = self.fields.pos[i] + ti.Vector([offset_x, offset_y])
 
-                        # Split size between parent and child
-                        new_radius = self.fields.radius[i] * self.config.division_size_split
-                        self.fields.radius[i] = new_radius
-                        self.fields.radius[j] = new_radius
+                        # Set child radius
+                        self.fields.radius[j] = child_radius
 
-                        # Initialize new vesicle properties
+                        # Initialize child properties
                         self.fields.particle_type[j] = int(ParticleType.VESICLE)
                         self.fields.radius_threshold[j] = self.config.division_size_min
                         self.fields.vel[j] = self.fields.vel[i] * self.config.division_velocity_inheritance
                         self.fields.colors[j] = ti.Vector([0.2, 0.8, 0.8])
                         self.fields.absorption_rate[j] = self.config.absorption_rate_min + ti.random() * (self.config.absorption_rate_max - self.config.absorption_rate_min)
 
-                        # Transfer half the monomers to new vesicle
-                        monomers_to_transfer = self.fields.monomers_eaten[i] // 2
+                        # Transfer monomers to this child
                         monomers_transferred = 0
-
                         for k in range(self.config.n_particles):
-                            if monomers_transferred >= monomers_to_transfer:
+                            if monomers_transferred >= monomers_per_child:
                                 break
 
                             if self.fields.parent_vesicle[k] == i:
@@ -276,33 +310,54 @@ class VesicleSystem:
                                 self.fields.parent_vesicle[k] = j
                                 monomers_transferred += 1
 
-                        self.fields.monomers_eaten[i] = self.fields.monomers_eaten[i] - monomers_transferred
+                                # Randomize offset within new parent
+                                scale = self.config.growth_factor * child_radius / 800.0
+                                self.fields.offset[k] = ti.Vector([
+                                    (ti.random() - 0.5) * scale,
+                                    (ti.random() - 0.5) * scale,
+                                ])
+
                         self.fields.monomers_eaten[j] = monomers_transferred
 
-                        # Push parent and child apart based on repulsion bias and size
-                        parent_bias = self.calculate_vesicle_bias(i)
-                        child_bias = self.calculate_vesicle_bias(j)
-                        # Violent size-scaled push - larger vesicles explode apart much harder
-                        # Uses squared radius for dramatic effect (25^2 = 625, 37^2 = 1369)
-                        size_factor = new_radius * new_radius
-                        push_strength = (parent_bias[3] + child_bias[3]) * self.config.division_push_strength * size_factor
+                    # Update parent (becomes first child)
+                    self.fields.radius[i] = child_radius
+                    self.fields.monomers_eaten[i] = total_monomers - (monomers_per_child * (num_children - 1))
 
-                        # Direction from parent to child
-                        dir_x = self.fields.pos[j].x - self.fields.pos[i].x
-                        dir_y = self.fields.pos[j].y - self.fields.pos[i].y
-                        dist = ti.sqrt(dir_x * dir_x + dir_y * dir_y)
+                    # Apply violent mutual repulsion between all children (including parent)
+                    # Collect all child IDs including parent
+                    all_children = ti.Vector([-1, -1, -1, -1])
+                    all_children[0] = i  # Parent becomes first child
+                    for idx in range(num_children - 1):
+                        all_children[idx + 1] = child_slots[idx]
 
-                        if dist > 0.0001:
-                            dir_x /= dist
-                            dir_y /= dist
+                    # Apply repulsion between all pairs
+                    for idx_a in range(num_children):
+                        vesicle_a = all_children[idx_a]
+                        bias_a = self.calculate_vesicle_bias(vesicle_a)
 
-                            # Push them apart (horizontal bias)
-                            self.fields.vel[i].x -= dir_x * push_strength * self.config.horizontal_force_bias
-                            self.fields.vel[i].y -= dir_y * push_strength
-                            self.fields.vel[j].x += dir_x * push_strength * self.config.horizontal_force_bias
-                            self.fields.vel[j].y += dir_y * push_strength
+                        for idx_b in range(idx_a + 1, num_children):
+                            vesicle_b = all_children[idx_b]
+                            bias_b = self.calculate_vesicle_bias(vesicle_b)
 
-                        break  # Only create one child per division event
+                            # Violent size-scaled push - scales with original parent size²
+                            # Multi-way splits are even more explosive (extra 1.5× multiplier)
+                            size_factor = parent_radius * parent_radius * 1.5
+                            push_strength = (bias_a[3] + bias_b[3]) * self.config.division_push_strength * size_factor
+
+                            # Direction from a to b
+                            dir_x = self.fields.pos[vesicle_b].x - self.fields.pos[vesicle_a].x
+                            dir_y = self.fields.pos[vesicle_b].y - self.fields.pos[vesicle_a].y
+                            dist = ti.sqrt(dir_x * dir_x + dir_y * dir_y)
+
+                            if dist > 0.0001:
+                                dir_x /= dist
+                                dir_y /= dist
+
+                                # Push them apart (horizontal bias)
+                                self.fields.vel[vesicle_a].x -= dir_x * push_strength * self.config.horizontal_force_bias
+                                self.fields.vel[vesicle_a].y -= dir_y * push_strength
+                                self.fields.vel[vesicle_b].x += dir_x * push_strength * self.config.horizontal_force_bias
+                                self.fields.vel[vesicle_b].y += dir_y * push_strength
 
     @ti.kernel
     def vesicle_interactions(self):

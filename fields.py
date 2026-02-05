@@ -107,8 +107,8 @@ class SimulationFields:
                 self.monomer_type[i] = -1  # Vesicles don't have a monomer type
                 self.chemical_property[i] = int(ChemicalProperty.NONE)
 
-                # Random absorption rate per vesicle (0.005 to 0.05 = 0.5% to 5% chance)
-                self.absorption_rate[i] = 0.005 + ti.random() * 0.045
+                # Random absorption rate per vesicle
+                self.absorption_rate[i] = self.config.absorption_rate_min + ti.random() * (self.config.absorption_rate_max - self.config.absorption_rate_min)
 
                 # Vesicle color (cyan/green to distinguish from monomers)
                 self.colors[i] = ti.Vector([0.2, 0.8, 0.8])

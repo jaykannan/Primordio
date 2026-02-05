@@ -49,7 +49,11 @@ See [ABIOGENESIS.md](ABIOGENESIS.md) for detailed scientific background.
 - Move independently with light fluid influence (not driven by currents)
 - Absorb monomers from the environment
 - Grow based on absorbed chemical content
-- Divide explosively when reaching critical size (force scales with size²)
+- Divide explosively when reaching critical size with **multi-way splitting**:
+  - Small vesicles (50-60px): 2-way split
+  - Medium vesicles (60-70px): 3-way split
+  - Large vesicles (70+px): 4-way explosive fragmentation
+  - Force scales with parent size² for dramatic effect
 - Compete for resources with size-dependent interactions
 - Experience ambient pressure repulsion from similar-sized neighbors
 
@@ -99,7 +103,7 @@ Interesting phenomena to watch for:
 1. **Predator-Prey Dynamics**: Large vesicles hunt smaller ones
 2. **Defensive Clusters**: Vesicles with high repulsion resist absorption
 3. **Social Groups**: High-attraction vesicles form stable clusters
-4. **Explosive Division Events**: Large vesicles split dramatically - violence scales with size²!
+4. **Multi-Way Division Events**: Large vesicles fragment into 2, 3, or 4 pieces depending on size - spectacular explosive splits!
 5. **Autonomous Swimming**: Vesicles navigate independently with self-propelled motion
 6. **Size-Based Repulsion**: Similar-sized vesicles push apart due to ambient pressure
 7. **Chemical Sorting**: Certain monomer types concentrate in successful lineages

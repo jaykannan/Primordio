@@ -97,6 +97,11 @@ class SimulationConfig:
     absorption_rate_min: float = 0.005  # Minimum absorption rate (0.5%)
     absorption_rate_max: float = 0.05  # Maximum absorption rate (5%)
 
+    # Multi-way division thresholds
+    division_2way_max: float = 60.0  # Maximum radius for 2-way split
+    division_3way_max: float = 70.0  # Maximum radius for 3-way split
+    # 4+ way split for anything larger
+
     # Vesicle interaction mechanics
     interaction_range: float = 0.15  # Maximum distance for vesicle-vesicle interactions
     ambient_pressure_strength: float = 0.0008  # Strength of size-similarity repulsion
